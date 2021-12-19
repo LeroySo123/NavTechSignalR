@@ -1,0 +1,61 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+<PageTitle>Index</PageTitle>
+<div class="row">
+    <div class="col-3"><h3>Message Log</h3></div>
+    <div class="col-3"><h3>Connection Status: @connectionStatus</h3></div>
+    <div class="col-3"><button class="btn btn-success" @onclick="async () => await ConnectToServer()" disabled="@isConnected">Connect</button></div>
+</div>
+<div class="row">
+    <div class="col">
+                @foreach (var item in messages)
+        {
+            <div class="row bg-warning text-dark">
+                @item
+            </div>
+        }
+    </div>
+</div>
+
+@code{
+    string url = "https://localhost:7271";
+    HubConnection _connection = null;
+    bool isConnected = false;
+    string connectionStatus = "Closed";
+
+    List<string> messages = new List<string>();
+
+    private async Task ConnectToServer()
+    {
+        StartConnection();
+        _connection = new HubConnectionBuilder()
+        .WithUrl(url + "/messagehub")
+        .Build();
+
+        await _connection.StartAsync();
+        isConnected = true;
+        connectionStatus = "Connected";
+
+        _connection.Closed += async (s) =>
+        {
+            isConnected = false;
+            connectionStatus = "Disconnected";
+            await _connection.StartAsync();
+            isConnected = true;
+        };
+
+        _connection.On<string>("message", m =>
+        {
+            messages.Add(m);
+            StateHasChanged();
+        });
+    }
+
+    private async void StartConnection()
+    {
+        using (var client = new HttpClient())
+        {
+            var response = await client.GetAsync(url + "/api/Message/StartConnection");
+        }
+    }
+}
